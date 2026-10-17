@@ -1,0 +1,27 @@
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
+@import 'leaflet/dist/leaflet.css';
+
+@source '../../../../app/Filament/**/*';
+@source '../../../../resources/views/filament/**/*';
+
+/* Black & White Ops admin: Noir luxury touches on top of Filament's dark theme. */
+:root { --bw-gold: #C9A86A; --bw-ink: #0B0B0C; --bw-paper: #F5F5F2; }
+.bw-brand { display: flex; align-items: center; gap: .6rem; height: 100%; }
+.bw-brand__mark { height: 1.9rem; width: 1.9rem; }
+.bw-brand__text { display: flex; flex-direction: column; line-height: 1; text-transform: uppercase; letter-spacing: .22em; font-size: .62rem; color: rgb(161 161 170); }
+.bw-brand__text strong { font-size: 1.05rem; letter-spacing: .32em; color: var(--bw-gold); font-weight: 700; margin-top: .2rem; }
+html:not(.dark) .bw-brand__text { color: #3f3f46; }
+.dark .fi-body { background: #0B0B0C; }
+.dark .fi-sidebar, .dark .fi-topbar > nav { background: #0F0F11 !important; }
+.bw-draft-banner { display: inline-block; border: 1px solid rgba(201,168,106,.45); background: rgba(201,168,106,.08); color: #E7D3A8; padding: .45rem .8rem; border-radius: .6rem; font-size: .85rem; }
+.bw-map { height: 70vh; min-height: 520px; border-radius: .9rem; overflow: hidden; border: 1px solid rgba(255,255,255,.08); background: #111114; }
+.bw-pill { display: inline-flex; align-items: center; gap: .35rem; padding: .15rem .55rem; border-radius: 999px; font-size: .72rem; font-weight: 600; }
+.bw-sos-flash { animation: bwflash 1s steps(2, start) infinite; }
+@keyframes bwflash { to { background: rgba(225, 29, 72, .25); } }
+.bw-marker { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font: 700 10px/1 Inter, sans-serif; color: #0B0B0C; background: #C9A86A; border: 2px solid #0B0B0C; box-shadow: 0 0 0 3px rgba(201,168,106,.35); }
+.bw-marker--busy { background: #38bdf8; box-shadow: 0 0 0 3px rgba(56,189,248,.35); }
+.bw-marker--offline { background: #71717a; box-shadow: none; }
+.bw-marker--booking { background: #F5F5F2; border-radius: 6px; }
+.bw-marker--sos { background: #e11d48; color: #fff; animation: bwpulse 1s infinite; }
+@keyframes bwpulse { 0% { box-shadow: 0 0 0 0 rgba(225,29,72,.7); } 100% { box-shadow: 0 0 0 18px rgba(225,29,72,0); } }
+#bw-map .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.9) contrast(.85) saturate(.4); }

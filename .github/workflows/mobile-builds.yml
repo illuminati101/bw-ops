@@ -1,0 +1,164 @@
+# Builds installable test apps for both the client app and the Crew app:
+#   Android: APK (install directly) and AAB (for the Play Store later)
+#   iOS: unsigned IPA (install with Sideloadly or AltStore; they sign it with your Apple ID)
+# Results appear under the run's "Artifacts", and in a GitHub Release when "publish_release" is ticked.
+name: Mobile builds
+
+on:
+  workflow_dispatch:
+    inputs:
+      server_url:
+        description: Default server address baked into the apps (can be changed in the app)
+        default: https://blackandwhiteops.com
+        required: true
+      publish_release:
+        description: Also publish the files as a GitHub Release (easy phone download)
+        type: boolean
+        default: true
+  push:
+    branches: [main]
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/mobile-builds.yml'
+
+env:
+  BW_SERVER_URL: ${{ inputs.server_url || vars.BW_SERVER_URL || 'https://blackandwhiteops.com' }}
+  BUILD_NUMBER: ${{ github.run_number }}
+  EAS_PROJECT_ID: ${{ vars.EAS_PROJECT_ID }}
+  EXPO_NO_TELEMETRY: 1
+
+jobs:
+  android:
+    name: Android (${{ matrix.variant }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [client, crew]
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      APP_VARIANT: ${{ matrix.variant }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - run: npm ci
+      - name: Generate native Android project
+        run: npx expo prebuild --platform android --clean --no-install
+      - name: Release signing (optional)
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/upload.keystore"; export ANDROID_KEYSTORE_PATH="$RUNNER_TEMP/upload.keystore"; fi
+          node scripts/ci-android-signing.mjs
+      - name: Build APK and AAB
+        working-directory: mobile/android
+        run: ./gradlew assembleRelease bundleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
+      - name: Collect files
+        run: |
+          mkdir -p ../dist
+          NAME=$([ "$APP_VARIANT" = crew ] && echo bw-ops-crew || echo bw-ops)
+          cp android/app/build/outputs/apk/release/app-release.apk "../dist/${NAME}-android-${BUILD_NUMBER}.apk"
+          cp android/app/build/outputs/bundle/release/app-release.aab "../dist/${NAME}-android-${BUILD_NUMBER}.aab"
+          ls -la ../dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-${{ matrix.variant }}
+          path: dist/*
+          retention-days: 30
+
+  ios:
+    name: iOS (${{ matrix.variant }})
+    runs-on: macos-15
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [client, crew]
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      APP_VARIANT: ${{ matrix.variant }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - name: Use the newest Xcode on the runner
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          echo "Using $XCODE"
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
+      - run: npm ci
+      - name: Generate native iOS project
+        run: npx expo prebuild --platform ios --clean --no-install
+      - name: Remove push entitlement for sideloading
+        # Free Apple IDs (Sideloadly / AltStore) cannot sign push notifications. Push needs an Apple Developer account anyway.
+        run: |
+          for f in ios/*/*.entitlements; do /usr/libexec/PlistBuddy -c "Delete :aps-environment" "$f" 2>/dev/null || true; done
+      - name: Install CocoaPods
+        working-directory: mobile/ios
+        run: pod install
+      - name: Build unsigned app
+        working-directory: mobile/ios
+        run: |
+          WS=$(ls -d *.xcworkspace | head -1)
+          SCHEME="${WS%.xcworkspace}"
+          echo "Workspace $WS, scheme $SCHEME"
+          set -o pipefail
+          xcodebuild -workspace "$WS" -scheme "$SCHEME" -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/app.xcarchive" archive \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" DEVELOPMENT_TEAM="" | tail -n 200
+      - name: Package IPA
+        run: |
+          APP=$(ls -d "$RUNNER_TEMP"/app.xcarchive/Products/Applications/*.app | head -1)
+          NAME=$([ "$APP_VARIANT" = crew ] && echo bw-ops-crew || echo bw-ops)
+          mkdir -p "$RUNNER_TEMP/ipa/Payload" ../dist
+          cp -R "$APP" "$RUNNER_TEMP/ipa/Payload/"
+          (cd "$RUNNER_TEMP/ipa" && zip -qry "$GITHUB_WORKSPACE/dist/${NAME}-ios-${BUILD_NUMBER}-unsigned.ipa" Payload)
+          ls -la ../dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-${{ matrix.variant }}
+          path: dist/*
+          retention-days: 30
+
+  release:
+    name: Publish test release
+    needs: [android, ios]
+    if: ${{ always() && (github.event_name == 'push' || inputs.publish_release) && (needs.android.result == 'success' || needs.ios.result == 'success') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -la dist
+          gh release create "test-build-${{ github.run_number }}" dist/* \
+            --repo "${{ github.repository }}" --prerelease \
+            --title "Test build ${{ github.run_number }}" \
+            --notes "Test apps for Black & White Ops (client) and BW Ops Crew. Default server: ${BW_SERVER_URL}. Android: install the .apk. iPhone: install the .ipa with Sideloadly or AltStore. The .aab files are for the Play Store later."

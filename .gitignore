@@ -1,0 +1,15 @@
+# Windows test server downloads and logs
+windows/runtime/
+windows/logs/
+
+# Tooling
+tools/browser/node_modules/
+mobile/dist-check/
+mobile/android/
+mobile/ios/
+
+# Local databases and archives
+backend/database/*.sqlite
+*.zip
+.DS_Store
+Thumbs.db

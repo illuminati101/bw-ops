@@ -1,0 +1,5 @@
+@echo off
+title Black ^& White Ops - START
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0windows\start.ps1"
+echo.
+pause
