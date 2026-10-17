@@ -4,5 +4,6 @@ $php = Get-Php
 Push-Location $Backend
 & $php artisan migrate --force
 & $php artisan optimize:clear
+& $php artisan filament:optimize-clear
 Pop-Location
 Say 'Updated.' 'Green'

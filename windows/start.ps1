@@ -4,6 +4,7 @@ $php = Get-Php
 if (-not $php -or -not (Test-Path (Join-Path $Backend '.env'))) { Say 'Run SETUP.bat first.' 'Red'; exit 1 }
 
 & "$PSScriptRoot\stop.ps1" -Quiet
+Enable-PhpSpeedups
 
 Title 'Starting the server'
 $web = Start-Process $php -ArgumentList 'artisan','serve','--host=127.0.0.1','--port=8000' -WorkingDirectory $Backend -WindowStyle Minimized -PassThru -RedirectStandardOutput (Join-Path $Logs 'web.log') -RedirectStandardError (Join-Path $Logs 'web-error.log')
@@ -40,7 +41,9 @@ if ($public) {
     Set-EnvValue 'APP_URL' 'http://localhost:8000'
     Set-EnvValue 'BW_FORCE_APP_URL' 'false'
 }
-& $php artisan config:clear | Out-Null
+# Pre-build Laravel's caches so each page doesn't re-read hundreds of files.
+& $php artisan optimize | Out-Null
+& $php artisan filament:optimize | Out-Null
 Pop-Location
 
 Title 'Ready'

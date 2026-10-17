@@ -30,6 +30,13 @@ if (-not $php) {
     $ini = $ini -replace '^upload_max_filesize = .*', 'upload_max_filesize = 20M'
     $ini = $ini -replace '^post_max_size = .*', 'post_max_size = 25M'
     $ini = $ini -replace '^;date.timezone =.*', 'date.timezone = Africa/Johannesburg'
+    $ini = $ini -replace '^;zend_extension=opcache', 'zend_extension=opcache'
+    $ini += @(
+        '', '; Black & White Ops: speed (compiled PHP kept in memory; fewer disk lookups on Windows)',
+        'opcache.enable=1', 'opcache.enable_cli=1', 'opcache.memory_consumption=256', 'opcache.interned_strings_buffer=32',
+        'opcache.max_accelerated_files=40000', 'opcache.validate_timestamps=1', 'opcache.revalidate_freq=10',
+        'realpath_cache_size=16M', 'realpath_cache_ttl=600'
+    )
     Set-Content (Join-Path $Runtime 'php\php.ini') $ini -Encoding ASCII
     $php = $LocalPhp
     if (-not (Test-PhpOk $php)) {
@@ -57,6 +64,8 @@ try {
         Set-EnvValue 'APP_DEBUG' 'false'
         Set-EnvValue 'BROADCAST_CONNECTION' 'log'   # live updates use polling on the test server
         Set-EnvValue 'BW_FORCE_APP_URL' 'true'
+        Set-EnvValue 'CACHE_STORE' 'file'
+        Set-EnvValue 'SESSION_DRIVER' 'file'
         & $php artisan key:generate --force
     }
     $db = Join-Path $Backend 'database\database.sqlite'

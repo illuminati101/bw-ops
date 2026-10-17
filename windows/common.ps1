@@ -36,3 +36,16 @@ function Set-EnvValue([string]$key, [string]$value) {
     if (-not $found) { $lines += "$key=$value" }
     [IO.File]::WriteAllLines($file, [string[]]$lines)   # UTF-8 without a byte-order mark
 }
+
+# Turn on OPcache in the portable PHP if an older setup left it off (makes pages many times faster).
+function Enable-PhpSpeedups {
+    $iniPath = Join-Path $Runtime 'php\php.ini'
+    if (-not (Test-Path $iniPath)) { return }
+    $ini = Get-Content $iniPath
+    if ($ini -match '^opcache.enable=1') { return }
+    $ini = $ini -replace '^;zend_extension=opcache', 'zend_extension=opcache'
+    $ini += @('', '; Black & White Ops: speed', 'opcache.enable=1', 'opcache.enable_cli=1', 'opcache.memory_consumption=256',
+        'opcache.interned_strings_buffer=32', 'opcache.max_accelerated_files=40000', 'opcache.validate_timestamps=1',
+        'opcache.revalidate_freq=10', 'realpath_cache_size=16M', 'realpath_cache_ttl=600')
+    Set-Content $iniPath $ini -Encoding ASCII
+}
