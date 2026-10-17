@@ -18,9 +18,10 @@ Android Studio is needed.
    (GitHub Desktop: *File* > *Add local repository* > *Publish repository*, keep *Private* ticked).
 2. On GitHub open the repository > **Actions** > **Mobile builds** > **Run workflow**.
    - *Default server address*: the address the apps start with. Use your permanent test address if you have one; otherwise leave the default and change it inside the app.
-3. After about 30 to 45 minutes, open **Releases** (right-hand side of the repository's main page) > *Test build N*. All four files are attached.
+   - *Also build the iPhone apps*: tick this when you want the `.ipa` files too (Android is always built).
+3. After about 20 to 45 minutes, open **Releases** (right-hand side of the repository's main page) > *Test build N*. The files are attached.
 
-Builds also run automatically whenever something in `mobile/` changes on the `main` branch.
+Android builds also run automatically whenever something in `mobile/` changes on the `main` branch.
 
 ## 2. Install on Android
 

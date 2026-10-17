@@ -1,6 +1,6 @@
 # Builds installable test apps for both the client app and the Crew app:
 #   Android: APK (install directly) and AAB (for the Play Store later)
-#   iOS: unsigned IPA (install with Sideloadly or AltStore; they sign it with your Apple ID)
+#   iOS (only when "Also build the iPhone apps" is ticked): unsigned IPA for Sideloadly or AltStore
 # Results appear under the run's "Artifacts", and in a GitHub Release when "publish_release" is ticked.
 name: Mobile builds
 
@@ -15,6 +15,10 @@ on:
         description: Also publish the files as a GitHub Release (easy phone download)
         type: boolean
         default: true
+      build_ios:
+        description: Also build the iPhone apps (unsigned IPA for Sideloadly)
+        type: boolean
+        default: false
   push:
     branches: [main]
     paths:
@@ -83,6 +87,7 @@ jobs:
 
   ios:
     name: iOS (${{ matrix.variant }})
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_ios }}
     runs-on: macos-15
     timeout-minutes: 90
     strategy:
